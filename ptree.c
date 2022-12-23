@@ -3,7 +3,8 @@
 #include <linux/slab.h>
 
 struct TreeNode {
-  int val;
+  int pid;    // 进程号
+  char *comm; // 进程名
   struct TreeNode *first_child;
   struct TreeNode *next_sibling;
 };
@@ -13,11 +14,12 @@ struct LinkedListNode {
   struct LinkedListNode *next;
 };
 
-static struct TreeNode *create_node(int val) {
+static struct TreeNode *create_node(int pid, char *comm) {
   struct TreeNode *node = kmalloc(sizeof(struct TreeNode), GFP_KERNEL);
-  node->val = val;
+  node->pid = pid;
   node->first_child = NULL;
   node->next_sibling = NULL;
+  node->comm = comm;
   return node;
 }
 
@@ -50,43 +52,40 @@ static struct TreeNode *rebuild_tree(void) {
     pid_t pid = task->pid;
     pid_t ppid = task->real_parent->pid;
 
-    int parent_val = ppid;
-    int child_val = pid;
-
     struct TreeNode *parent;
     struct TreeNode *child;
     struct LinkedListNode *list_node;
 
     // 如果父节点尚未插入哈希表，则创建新节点并插入哈希表
-    if (hash_table[parent_val] == NULL) {
-      parent = create_node(parent_val);
-      if (parent_val == 0) {
+    if (hash_table[ppid] == NULL) {
+      parent = create_node(ppid, task->real_parent->comm);
+      if (ppid == 0) {
         root = parent;
       }
       list_node = kmalloc(sizeof(struct LinkedListNode), GFP_KERNEL);
       list_node->data = parent;
-      list_node->next = hash_table[parent_val];
-      hash_table[parent_val] = list_node;
+      list_node->next = hash_table[ppid];
+      hash_table[ppid] = list_node;
     } else {
       // 否则，在哈希表中查找父节点
-      list_node = hash_table[parent_val];
-      while (list_node != NULL && list_node->data->val != parent_val) {
+      list_node = hash_table[ppid];
+      while (list_node != NULL && list_node->data->pid != ppid) {
         list_node = list_node->next;
       }
       parent = list_node->data;
     }
 
     // 如果子节点尚未插入哈希表，则创建新节点并插入哈希表
-    if (hash_table[child_val] == NULL) {
-      child = create_node(child_val);
+    if (hash_table[pid] == NULL) {
+      child = create_node(pid, task->comm);
       list_node = kmalloc(sizeof(struct LinkedListNode), GFP_KERNEL);
       list_node->data = child;
-      list_node->next = hash_table[child_val];
-      hash_table[child_val] = list_node;
+      list_node->next = hash_table[pid];
+      hash_table[pid] = list_node;
     } else {
       // 否则，在哈希表中查找子节点
-      list_node = hash_table[child_val];
-      while (list_node != NULL && list_node->data->val != child_val) {
+      list_node = hash_table[pid];
+      while (list_node != NULL && list_node->data->pid != pid) {
         list_node = list_node->next;
       }
       child = list_node->data;
@@ -128,10 +127,10 @@ static void print_tree(struct TreeNode *root, char *prefix,
         (char *)kmalloc((new_prefix_length + 1) * sizeof(char), GFP_KERNEL);
     // 如果是最后一个子节点，则打印不同的连接线
     if (child->next_sibling == NULL) {
-      printk("%s└── %d\n", prefix, child->val);
+      printk("%s└── %d [%s]\n", prefix, child->pid, child->comm);
       sprintf(new_prefix, "%s    ", prefix);
     } else {
-      printk("%s├── %d\n", prefix, child->val);
+      printk("%s├── %d [%s]\n", prefix, child->pid, child->comm);
       sprintf(new_prefix, "%s|   ", prefix);
     }
     if (child->first_child)
@@ -146,7 +145,7 @@ static int __init ptree_init(void) {
   char *prefix;
 
   root = rebuild_tree();
-  printk("%d", root->val);
+  printk("%d [%s]", root->pid, root->comm);
   prefix = (char *)kmalloc(sizeof(char), GFP_KERNEL);
   prefix[0] = '\0';
   print_tree(root, prefix, 0);
