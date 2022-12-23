@@ -111,36 +111,43 @@ static void free_tree(struct TreeNode *root) {
 }
 
 // 打印进程树
-void print_tree(struct TreeNode *root, int level, bool is_last) {
+void print_tree(struct TreeNode *root, char *prefix, size_t prefix_length) {
   struct TreeNode *child;
-  char *s;
+  char *new_prefix;
+  size_t new_prefix_length;
 
-  // 打印连接线
-  for (int i = 0; i < level; i++) {
-    s = i ? "|   " : "    ";
-    printk(KERN_CONT "%s", s);
-  }
-  // 如果是最后一个子节点，则打印不同的连接线
-  s = is_last ? "└── " : "├── ";
-  printk(KERN_CONT "%s", s);
-  printk(KERN_CONT "%d\n", root->val);
   // 递归遍历子节点
   child = root->first_child;
   while (child != NULL) {
+    new_prefix_length = prefix_length + 4;
+    new_prefix =
+        (char *)kmalloc((new_prefix_length + 1) * sizeof(char), GFP_KERNEL);
+    // 如果是最后一个子节点，则打印不同的连接线
     if (child->next_sibling == NULL) {
-      print_tree(child, level + 1, true);
+      printk("%s└── %d\n", prefix, child->val);
+      sprintf(new_prefix, "%s    ", prefix);
     } else {
-      print_tree(child, level + 1, false);
+      printk("%s├── %d\n", prefix, child->val);
+      sprintf(new_prefix, "%s|   ", prefix);
     }
+    if (child->first_child)
+      print_tree(child, new_prefix, new_prefix_length);
+    kfree(new_prefix);
     child = child->next_sibling;
   }
 }
 
 static int __init ptree_init(void) {
   struct TreeNode *root;
+  char *prefix;
 
   root = rebuild_tree();
-  print_tree(root, 0, true);
+  printk("%d", root->val);
+  prefix = (char *)kmalloc(sizeof(char), GFP_KERNEL);
+  prefix[0] = '\0';
+  print_tree(root, prefix, 0);
+  kfree(prefix);
+
   free_tree(root);
   return 0;
 }
