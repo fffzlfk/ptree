@@ -1,4 +1,3 @@
-// #include "file.h"
 #include <linux/module.h>
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
@@ -27,6 +26,7 @@ static void add_child(struct TreeNode *parent, struct TreeNode *child) {
   parent->first_child = child;
 }
 
+// 根据进程父子关系重建进程树
 static struct TreeNode *rebuild_tree(void) {
   struct task_struct *task;
   int max_pid = 0;
@@ -34,6 +34,7 @@ static struct TreeNode *rebuild_tree(void) {
   // 创建根节点
   struct TreeNode *root;
 
+  // 遍历进程描述符，找到进程id最大值
   for_each_process(task) {
     pid_t pid = task->pid;
     if (max_pid < pid) {
@@ -95,6 +96,8 @@ static struct TreeNode *rebuild_tree(void) {
     add_child(parent, child);
   }
 
+  kfree(hash_table);
+
   // 返回根节点
   return root;
 }
@@ -111,7 +114,8 @@ static void free_tree(struct TreeNode *root) {
 }
 
 // 打印进程树
-void print_tree(struct TreeNode *root, char *prefix, size_t prefix_length) {
+static void print_tree(struct TreeNode *root, char *prefix,
+                       size_t prefix_length) {
   struct TreeNode *child;
   char *new_prefix;
   size_t new_prefix_length;
