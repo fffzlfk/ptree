@@ -131,7 +131,7 @@ static void print_tree(struct TreeNode *root, char *prefix,
       sprintf(new_prefix, "%s    ", prefix);
     } else {
       printk("%s├── %d [%s]\n", prefix, child->pid, child->comm);
-      sprintf(new_prefix, "%s|   ", prefix);
+      sprintf(new_prefix, "%s│   ", prefix);
     }
     if (child->first_child)
       print_tree(child, new_prefix, new_prefix_length);
